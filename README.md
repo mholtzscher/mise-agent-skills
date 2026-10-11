@@ -21,6 +21,14 @@ Package names are `owner/repository/skill-name`; the final component is the
 skill's frontmatter name, not its directory. Names must be lowercase slugs.
 Only GitHub sources and global OpenCode/Pi installations are supported.
 
+For a skill inside a specific nested directory, use
+`owner/repository/path/to/skill-name`; here the final directory must match the
+frontmatter name. For example:
+`agent-skills:openai/codex/codex-rs/skills/src/assets/samples/skill-creator`.
+The adapter uses the CLI's GitHub subpath shorthand and verifies the recorded
+skill path. Discovery uses `--full-depth`, while `--skill` still limits each
+installation to the declared skill (including plugin-bundled skills).
+
 ```sh
 mise bootstrap
 mise bootstrap packages status

@@ -36,7 +36,7 @@ local function reset()
     environment = { HOME = "/home/test" }
     lock_data = { version = 3, skills = entries }
     command = function(text)
-        assert(text == "skills add 'https://github.com/owner/repo' --skill 'demo' --global --agent opencode pi --yes", text)
+        assert(text == "skills add 'https://github.com/owner/repo' --skill 'demo' --global --agent opencode pi --yes --full-depth", text)
         installed()
         return ""
     end
@@ -94,6 +94,19 @@ test("branch pin is escaped and checked", function()
     end
     run("install", pinned)
     assert(run("installed", pinned).packages[1].version == "feature/skills")
+end)
+test("nested sources preserve source path and refs", function()
+    local nested = { { name = "owner/repo/path/to/demo", version = "feature/skills" } }
+    command = function(text)
+        assert(text == "skills add 'owner/repo/path/to/demo#feature%2Fskills' --skill 'demo' --global --agent opencode pi --yes --full-depth")
+        installed(nil, "feature/skills")
+        entries.demo.skillPath = "path/to/demo/SKILL.md"
+        return ""
+    end
+    run("install", nested)
+    assert(run("installed", nested).packages[1].state == "installed")
+    entries.demo.skillPath = "elsewhere/demo/SKILL.md"
+    raises("another source path", function() run("upgrade", nested) end)
 end)
 test("unowned directory and Nix links cannot be overwritten", function()
     dir("/home/test/.agents/skills/demo")
@@ -155,7 +168,7 @@ test("valid exit without installation fails postcondition", function()
     raises("did not install", function() run("install") end)
 end)
 test("input validation rejects traversal, syntax, duplicates, sparse arrays", function()
-    for _, name in ipairs({ "a/b/../c", "a/b/$(id)", "a/b/*" }) do
+    for _, name in ipairs({ "a/b/../c", "a/b/$(id)", "a/b/*", "a/b//demo", "a/b/path//demo", "a/b/path/demo/" }) do
         raises("expected", function() skills.parse({ { name = name } }) end)
     end
     raises("invalid Git ref", function() skills.parse({ { name = "a/b/demo", version = "x;touch /tmp/foo" } }) end)

@@ -51,4 +51,14 @@ with tempfile.TemporaryDirectory(prefix="agent-skills-integration-") as temporar
     mise("bootstrap", "packages", "install")
     assert lock()["ref"] == commit
     assert "installed" in mise("bootstrap", "packages", "status")
-    print("Real Lua hooks: install, dry-run, status, repeat install, upgrade, commit pin passed.")
+    (root / "mise.toml").write_text('''[bootstrap.packages]
+"agent-skills:openai/codex/codex-rs/skills/src/assets/samples/skill-creator" = "latest"
+"agent-skills:cursor/plugins/unslop" = "latest"
+''')
+    mise("bootstrap", "packages", "install")
+    result = mise("bootstrap", "packages", "status")
+    assert "missing" not in result and result.count("installed") == 2, result
+    entries = json.loads((root / "state/skills/.skill-lock.json").read_text())["skills"]
+    assert entries["skill-creator"]["skillPath"] == "codex-rs/skills/src/assets/samples/skill-creator/SKILL.md"
+    assert entries["unslop"]["source"] == "cursor/plugins"
+    print("Real Lua hooks: install, dry-run, status, repeat install, upgrade, commit pin, nested sources and deep discovery passed.")

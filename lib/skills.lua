@@ -37,8 +37,16 @@ function M.parse(requests)
     for i = 1, count do
         local request = requests[i]
         if not object(request) or type(request.name) ~= "string" then fail("invalid package request") end
-        local owner, repo, skill = request.name:match("^([%w][%w_-]*)/([%w][%w_.-]*)/([a-z0-9][a-z0-9_-]*)$")
+        local owner, repo, tail = request.name:match("^([%w][%w_-]*)/([%w][%w_.-]*)/(.+)$")
         if not owner then fail("expected owner/repository/skill-name: " .. request.name) end
+        local skill = tail:match("([^/]+)$")
+        if not skill or not skill:match("^[a-z0-9][a-z0-9_-]*$") or tail:sub(1, 1) == "/" or tail:find("//", 1, true) then
+            fail("expected a skill name or path: " .. request.name)
+        end
+        for segment in tail:gmatch("[^/]+") do
+            if not segment:match("^[%w][%w_.-]*$") then fail("expected safe path segments: " .. request.name) end
+        end
+        local subpath = tail:find("/", 1, true) and tail or nil
         if names[skill] then fail("duplicate skill name in batch: " .. skill) end
         names[skill] = true
         local ref = request.version
@@ -46,7 +54,7 @@ function M.parse(requests)
         if ref ~= nil and (type(ref) ~= "string" or not ref:match("^[%w][%w._/-]*$") or ref:find("..", 1, true) or ref:sub(-1) == "/") then
             fail("invalid Git ref: " .. tostring(ref))
         end
-        batch[i] = { name = request.name, source = owner .. "/" .. repo, skill = skill, ref = ref }
+        batch[i] = { name = request.name, source = owner .. "/" .. repo, skill = skill, ref = ref, subpath = subpath }
     end
     return batch
 end
@@ -74,6 +82,7 @@ local function lock(paths)
     for name, entry in pairs(data.skills) do
         if not object(entry) or type(entry.source) ~= "string" or type(entry.sourceType) ~= "string"
             or (entry.ref ~= nil and type(entry.ref) ~= "string")
+            or (entry.skillPath ~= nil and type(entry.skillPath) ~= "string")
             or (entry.skillFolderHash ~= nil and type(entry.skillFolderHash) ~= "string") then
             fail("malformed lock entry: " .. name)
         end
@@ -86,6 +95,9 @@ local function inspect(p, entries, paths)
     local canonical = paths.root .. "/" .. p.skill
     if entry and (entry.source:lower() ~= p.source:lower() or entry.sourceType ~= "github") then
         fail("skill name belongs to another source: " .. p.skill)
+    end
+    if entry and p.subpath and entry.skillPath ~= p.subpath .. "/SKILL.md" then
+        fail("skill name belongs to another source path: " .. p.skill)
     end
     local native = file.stat(canonical)
     if native and (not entry or native.is_symlink or not native.is_dir) then
@@ -144,10 +156,13 @@ function M.run(action, ctx)
     for i, p in ipairs(batch) do
         if action == "upgrade" or statuses[i].state ~= "installed" then
             local source = "https://github.com/" .. p.source
+            -- The CLI's GitHub shorthand supports subpaths plus fragment refs,
+            -- unlike tree URLs which cannot represent refs containing slashes.
+            if p.subpath then source = p.source .. "/" .. p.subpath end
             if p.ref then
                 source = source .. "#" .. p.ref:gsub("([^%w._~-])", function(c) return string.format("%%%02X", c:byte()) end)
             end
-            cmd.exec("skills add " .. quote(source) .. " --skill " .. quote(p.skill) .. " --global --agent opencode pi --yes", {
+            cmd.exec("skills add " .. quote(source) .. " --skill " .. quote(p.skill) .. " --global --agent opencode pi --yes --full-depth", {
                 env = { DISABLE_TELEMETRY = "1" },
             })
             if inspect(p, lock(paths), paths).state ~= "installed" then
