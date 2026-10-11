@@ -1,3 +1,3 @@
 function PLUGIN:PackageInstall(ctx)
-    return require("lib.bridge").run("install", ctx)
+    return require("lib.skills").run("install", ctx)
 end

@@ -8,7 +8,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: leafo/gh-actions-lua@v11
         with:
-          node-version: 24
-      - run: node --test tests/*.test.mjs
+          luaVersion: "5.1"
+      - run: lua tests/skills.lua

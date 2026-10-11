@@ -49,11 +49,14 @@ the canonical directory may be shared by other agents.
 ## Development
 
 ```sh
-node --test tests/*.test.mjs
+lua tests/skills.lua
 mise plugins link agent-skills "$PWD"
 # Opt-in network smoke test in an isolated home:
-mise exec npm:skills@1.7.2 -- node tests/integration.mjs
+mise exec npm:skills@1.7.2 -- python3 tests/integration.py
 ```
 
-The small Lua hooks delegate filesystem checks and argument-safe CLI calls
-to the dependency-free Node adapter. Tests use private temporary homes.
+The plugin is entirely Lua, using Mise's filesystem, JSON, and command APIs.
+Shell arguments are quoted; legacy links are checked with the Linux/macOS
+`test -ef` operator. Node is only needed by the upstream `skills` CLI.
+Unit tests run on Lua 5.1 or later; the optional Python smoke test exercises
+the real embedded Lua hooks and CLI in a private temporary home.

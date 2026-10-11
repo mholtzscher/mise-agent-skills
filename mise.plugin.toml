@@ -1,4 +1,4 @@
 [package-manager]
-requires = ["node", "skills", "git"]
+requires = ["skills", "git"]
 supports_version_pins = true
 os = ["linux", "macos"]
