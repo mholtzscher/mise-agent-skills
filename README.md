@@ -50,9 +50,22 @@ collisions. There is no additional plugin lockfile.
 Conflicting sources, unmanaged directories, local links, malformed lockfiles,
 and symlinked parent directories stop installation. Transfer ownership from
 Nix before enrolling existing skills. This plugin does not unlink Nix files.
-Removing a declaration does not delete installed skills; use the native CLI
-to remove skills deliberately. Uninstall is intentionally not exposed since
-the canonical directory may be shared by other agents.
+Removing a declaration does not delete installed skills. To explicitly remove
+undeclared skills that mise installed, preview and then run prune:
+
+```sh
+mise bootstrap packages prune --manager agent-skills --dry-run
+mise bootstrap packages prune --manager agent-skills
+```
+
+Prune keeps skills still declared by any trusted config mise tracks and only
+removes packages mise recorded installing (not skills already present before
+mise managed them). The uninstall hook checks source/path ownership and rejects
+externally managed directories, links, and symlinked parents before mutation.
+It delegates each removal to `skills remove --global <skill-name> --yes`, which
+removes the shared canonical directory, agent links, and CLI lock entry.
+**Removal affects every agent using that shared skill**, not just OpenCode/Pi.
+For a skill not tracked as installed by mise, use the native CLI deliberately.
 
 ## Development
 

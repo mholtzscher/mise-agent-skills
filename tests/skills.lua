@@ -191,4 +191,75 @@ test("quoted home paths are safely passed to shell", function()
     end
     run("installed")
 end)
+test("uninstall targets only requested skill and ignores installed hash as ref", function()
+    installed(nil, "feature/skills")
+    entries.other = { source = "other/repo", sourceType = "github" }
+    dir("/home/test/.agents/skills/other")
+    command = function(text, options)
+        assert(text == "skills remove --global 'demo' --yes", text)
+        assert(options.env.DISABLE_TELEMETRY == "1")
+        entries.demo = nil
+        fs["/home/test/.agents/skills/demo"] = nil
+        return ""
+    end
+    run("uninstall", { { name = "owner/repo/demo", version = "abc123" } })
+    assert(#calls == 1 and entries.other and fs["/home/test/.agents/skills/other"])
+    run("uninstall")
+    assert(#calls == 1) -- Already absent is a no-op.
+end)
+test("uninstall dry run preserves state", function()
+    installed()
+    run("uninstall", nil, true)
+    assert(#calls == 0 and entries.demo and fs["/home/test/.agents/skills/demo"])
+end)
+test("uninstall preflights the whole batch and rejects unmanaged state", function()
+    installed("other/repo")
+    raises("another source", function()
+        run("uninstall", { { name = "owner/repo/valid" }, request[1] })
+    end)
+    installed()
+    entries.demo = nil
+    raises("externally managed", function() run("uninstall") end)
+    installed()
+    fs["/home/test/.agents/skills/demo"] = { is_symlink = true }
+    raises("externally managed", function() run("uninstall") end)
+    assert(#calls == 0)
+end)
+test("uninstall rejects source path changes and unsafe parents", function()
+    installed()
+    entries.demo.skillPath = "wrong/demo/SKILL.md"
+    raises("another source path", function()
+        run("uninstall", { { name = "owner/repo/path/demo" } })
+    end)
+    fs["/home/test/.agents"] = { is_symlink = true }
+    raises("symlinked parent", function() run("uninstall") end)
+    fs["/home/test/.agents"] = nil
+    fs["/home/test/.agents/.skill-lock.json"] = { is_symlink = true }
+    raises("symlinked lockfile", function() run("uninstall") end)
+    assert(#calls == 0)
+end)
+test("uninstall fails when CLI retains lock entry or canonical directory", function()
+    installed()
+    command = function() return "" end
+    raises("did not remove the requested skill", function() run("uninstall") end)
+    command = function() entries.demo = nil; return "" end
+    raises("did not remove the requested skill", function() run("uninstall") end)
+end)
+test("uninstall propagates CLI failure", function()
+    installed()
+    command = function() error("CLI failed") end
+    raises("CLI failed", function() run("uninstall") end)
+    assert(entries.demo and fs["/home/test/.agents/skills/demo"])
+end)
+test("uninstall checks legacy links were removed", function()
+    installed()
+    fs["/home/test/.pi/agent/skills/demo"] = { is_symlink = true }
+    command = function(text)
+        if text:match("^if test") then return "yes" end
+        entries.demo = nil
+        fs["/home/test/.agents/skills/demo"] = nil
+        return ""
+    end
+    raises("did not remove the agent link", function() run("uninstall") end)
+end)
 print(count .. " tests passed")

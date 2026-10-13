@@ -138,7 +138,7 @@ local function writable_parents(path, paths)
 end
 
 function M.run(action, ctx)
-    if action ~= "installed" and action ~= "install" and action ~= "upgrade" then fail("unknown action") end
+    if action ~= "installed" and action ~= "install" and action ~= "upgrade" and action ~= "uninstall" then fail("unknown action") end
     local batch = M.parse(ctx.packages)
     local paths = paths()
     local entries = lock(paths)
@@ -154,7 +154,23 @@ function M.run(action, ctx)
     end
     if ctx.dry_run then return end
     for i, p in ipairs(batch) do
-        if action == "upgrade" or statuses[i].state ~= "installed" then
+        if action == "uninstall" then
+            -- Prune supplies an installed version (possibly a folder hash), not
+            -- a requested Git ref. Ownership, rather than ref equality, controls removal.
+            if entries[p.skill] then
+                cmd.exec("skills remove --global " .. quote(p.skill) .. " --yes", {
+                    env = { DISABLE_TELEMETRY = "1" },
+                })
+                if lock(paths)[p.skill] or file.stat(paths.root .. "/" .. p.skill) then
+                    fail("skills CLI did not remove the requested skill: " .. p.name)
+                end
+                for _, root in ipairs(paths.agents) do
+                    if file.stat(root .. "/" .. p.skill) then
+                        fail("skills CLI did not remove the agent link: " .. root .. "/" .. p.skill)
+                    end
+                end
+            end
+        elseif action == "upgrade" or statuses[i].state ~= "installed" then
             local source = "https://github.com/" .. p.source
             -- The CLI's GitHub shorthand supports subpaths plus fragment refs,
             -- unlike tree URLs which cannot represent refs containing slashes.

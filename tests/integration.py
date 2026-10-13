@@ -61,4 +61,11 @@ with tempfile.TemporaryDirectory(prefix="agent-skills-integration-") as temporar
     entries = json.loads((root / "state/skills/.skill-lock.json").read_text())["skills"]
     assert entries["skill-creator"]["skillPath"] == "codex-rs/skills/src/assets/samples/skill-creator/SKILL.md"
     assert entries["unslop"]["source"] == "cursor/plugins"
-    print("Real Lua hooks: install, dry-run, status, repeat install, upgrade, commit pin, nested sources and deep discovery passed.")
+    # Only agent-browser is undeclared; its recorded installed version is a commit.
+    mise("bootstrap", "packages", "prune", "--manager", "agent-skills", "--dry-run")
+    assert manifest.exists() and lock()["ref"] == commit
+    mise("bootstrap", "packages", "prune", "--manager", "agent-skills", "--yes")
+    assert not manifest.parent.exists()
+    entries = json.loads((root / "state/skills/.skill-lock.json").read_text())["skills"]
+    assert "agent-browser" not in entries and "skill-creator" in entries and "unslop" in entries
+    print("Real Lua hooks: install, dry-run, status, repeat install, upgrade, commit pin, nested sources, deep discovery and prune passed.")
