@@ -119,7 +119,9 @@ local function inspect(p, entries, paths)
     if manifest and manifest.is_symlink then
         manifest_is_file = cmd.exec("if test -f " .. quote(manifest_path) .. "; then printf yes; else printf no; fi") == "yes"
     end
-    local installed = entry and entry.ref == p.ref and manifest_is_file
+    -- Prune queries the installed version it recorded, which is the folder
+    -- hash for default-branch skills rather than a requested Git ref.
+    local installed = entry and (entry.ref == p.ref or (p.ref ~= nil and entry.skillFolderHash == p.ref)) and manifest_is_file
     local result = { name = p.name, state = installed and "installed" or "missing" }
     if installed then result.version = p.ref or (entry.skillFolderHash ~= "" and entry.skillFolderHash) or "latest" end
     return result

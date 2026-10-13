@@ -68,4 +68,14 @@ with tempfile.TemporaryDirectory(prefix="agent-skills-integration-") as temporar
     assert not manifest.parent.exists()
     entries = json.loads((root / "state/skills/.skill-lock.json").read_text())["skills"]
     assert "agent-browser" not in entries and "skill-creator" in entries and "unslop" in entries
+    # Default-branch installs are recorded as folder hashes, not Git refs.
+    (root / "mise.toml").write_text("[bootstrap.packages]\n")
+    preview = mise("bootstrap", "packages", "prune", "--manager", "agent-skills", "--dry-run")
+    assert (root / "home/.agents/skills/skill-creator").exists()
+    assert (root / "home/.agents/skills/unslop").exists()
+    mise("bootstrap", "packages", "prune", "--manager", "agent-skills", "--yes")
+    entries = json.loads((root / "state/skills/.skill-lock.json").read_text())["skills"]
+    assert "skill-creator" not in entries and "unslop" not in entries
+    assert not (root / "home/.agents/skills/skill-creator").exists()
+    assert not (root / "home/.agents/skills/unslop").exists()
     print("Real Lua hooks: install, dry-run, status, repeat install, upgrade, commit pin, nested sources, deep discovery and prune passed.")

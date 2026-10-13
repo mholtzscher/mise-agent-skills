@@ -70,6 +70,13 @@ test("dry runs never invoke installer", function()
     run("upgrade", nil, true)
     assert(#calls == 0)
 end)
+test("prune status recognizes a recorded default-branch folder hash", function()
+    installed()
+    local recorded = { { name = "owner/repo/demo", version = "abc123" } }
+    local status = run("installed", recorded).packages[1]
+    assert(status.state == "installed" and status.version == "abc123")
+    assert(#calls == 0)
+end)
 test("symlinked manifests remain installed when their target is a file", function()
     installed()
     fs["/home/test/.agents/skills/demo/SKILL.md"] = { is_symlink = true }
